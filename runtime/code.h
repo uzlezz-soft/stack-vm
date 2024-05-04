@@ -9,6 +9,7 @@ namespace svm
 	struct Function
 	{
 		std::string name;
+		uint64_t name_hash;
         bool external = false;
 
         struct

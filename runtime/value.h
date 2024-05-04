@@ -1,7 +1,6 @@
 #pragma once
 
-#include <cstdint>
-#include <string_view>
+#include "hash.h"
 #include <optional>
 
 namespace svm
@@ -58,12 +57,12 @@ namespace svm
 
 		static Value ref(std::string_view ref_name)
 		{
-			return { VT_Ref, {.ref_index = std::hash<std::string_view>{}(ref_name) } };
+			return { VT_Ref, {.ref_index = hashString(ref_name) } };
 		}
 
 		static Value function(std::string_view name)
 		{
-			return { VT_Function, {.function_name_hash = std::hash<std::string_view>()(name)}};
+			return { VT_Function, {.function_name_hash = hashString(name)} };
 		}
 
 		bool isTrue() const

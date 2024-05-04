@@ -58,7 +58,7 @@ namespace svm
 	{
 		for (const auto& it : _code->getFunctions())
 		{
-			if (std::hash<std::string>()(it.name) == name_hash)
+			if (it.name_hash == name_hash)
 			{
 				callFunction(it, num_args);
 				return;
@@ -67,7 +67,7 @@ namespace svm
 
         for (const auto& it : _external_functions)
         {
-            if (std::hash<std::string>()(it.name) == name_hash)
+            if (it.name_hash == name_hash)
             {
                 callFunction(it, num_args);
                 return;
@@ -79,14 +79,15 @@ namespace svm
 
 	void Machine::callFunction(std::string_view name, int64_t num_args)
 	{
+		const auto name_hash = hashString(name);
 		const auto& funcs = _code->getFunctions();
 		const auto it = std::find_if(funcs.begin(), funcs.end(),
-			[name](const auto& f) { return f.name == name; });
+			[name_hash](const auto& f) { return f.name_hash == name_hash; });
 		if (it == funcs.end())
 		{
             const auto& funcs = _external_functions;
             const auto it = std::find_if(funcs.begin(), funcs.end(),
-                                         [name](const auto& f) { return f.name == name; });
+                                         [name_hash](const auto& f) { return f.name_hash == name_hash; });
             if (it == funcs.end())
             {
                 throw std::runtime_error("No such function");
@@ -108,14 +109,14 @@ namespace svm
 
             if (num_args == func.script.args.size()) {
                 for (int64_t i = num_args - 1; i >= 0; --i) {
-                    ctx._variables[std::hash<std::string>()(func.script.args[i])] = _exec_ctx_stack.top().pop();
+                    ctx._variables[hashString(func.script.args[i])] = _exec_ctx_stack.top().pop();
                 }
             } else if (num_args < func.script.args.size()) {
                 for (int64_t i = func.script.args.size() - 1; i >= num_args; --i) {
-                    ctx._variables[std::hash<std::string>()(func.script.args[i])] = Value::null();
+                    ctx._variables[hashString(func.script.args[i])] = Value::null();
                 }
                 for (int64_t i = num_args - 1; i >= 0; --i) {
-                    ctx._variables[std::hash<std::string>()(func.script.args[i])] = _exec_ctx_stack.top().pop();
+                    ctx._variables[hashString(func.script.args[i])] = _exec_ctx_stack.top().pop();
                 }
             } else {
                 throw std::runtime_error("shit");
@@ -168,6 +169,7 @@ namespace svm
     {
         Function f;
         f.name = name;
+		f.name_hash = hashString(name);
         f.external = true;
         f.native.num_args = num_args;
         f.native.handler = func;

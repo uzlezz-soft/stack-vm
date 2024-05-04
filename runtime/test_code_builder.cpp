@@ -285,6 +285,7 @@ namespace svm
 		{
 			svm::Function func;
 			func.name = fn_pair.first;
+			func.name_hash = hashString(func.name);
             func.external = false;
 			func.script.args = fn_pair.second.args;
 			func.script.start_instr_pointer = values.size();
