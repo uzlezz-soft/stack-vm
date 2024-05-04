@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string_view>
+#include <optional>
 
 namespace svm
 {
@@ -21,6 +22,19 @@ namespace svm
 			uint64_t ref_index;
 			uint64_t function_name_hash;
 		} v;
+
+        [[nodiscard]] std::optional<int64_t> asInt() const
+        {
+            switch (type)
+            {
+                case VT_Null:
+                case VT_Int:
+                    return v.integer;
+                case VT_Real:
+                    return static_cast<int64_t>(v.real);
+            }
+            return {};
+        }
 
 		static Value null()
 		{
@@ -44,12 +58,12 @@ namespace svm
 
 		static Value ref(std::string_view ref_name)
 		{
-			return { VT_Ref, {.ref_index = std::hash<std::string>()(ref_name.data()) } };
+			return { VT_Ref, {.ref_index = std::hash<std::string_view>{}(ref_name) } };
 		}
 
 		static Value function(std::string_view name)
 		{
-			return { VT_Function, {.function_name_hash = std::hash<std::string>()(name.data())}};
+			return { VT_Function, {.function_name_hash = std::hash<std::string_view>()(name)}};
 		}
 
 		bool isTrue() const

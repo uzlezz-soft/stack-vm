@@ -5,6 +5,56 @@
 namespace svm
 {
 
+    struct ComparatorLE
+    {
+        template <class T> bool operator()(T a, T b) { return a <= b; }
+    };
+    struct ComparatorGE
+    {
+        template <class T> bool operator()(T a, T b) { return a >= b; }
+    };
+    struct ComparatorE
+    {
+        template <class T> bool operator()(T a, T b) { return a == b; }
+    };
+    struct ComparatorNE
+    {
+        template <class T> bool operator()(T a, T b) { return a != b; }
+    };
+    struct ComparatorL
+    {
+        template <class T> bool operator()(T a, T b) { return a < b; }
+    };
+    struct ComparatorG
+    {
+        template <class T> bool operator()(T a, T b) { return a > b; }
+    };
+
+    template <class TComp>
+    struct CompareValues
+    {
+        void operator()(ExecutionContext& ctx, const std::vector<Value>& _args)
+        {
+            Value b = ctx.pop();
+            Value a = ctx.pop();
+            Value r = Value::null();
+
+            a = a.toTypeWith(b);
+            b = b.toTypeWith(a);
+
+            switch (a.type)
+            {
+                case VT_Int: r = Value::integer(TComp{}(a.v.integer, b.v.integer)); break;
+                case VT_Real: r = Value::integer(TComp{}(a.v.real, b.v.real)); break;
+                case VT_Function:
+                    r = Value::integer(TComp{}(a.v.function_name_hash, b.v.function_name_hash));
+                    break;
+            }
+
+            ctx.push(r);
+        }
+    };
+
 	TestCodeBuilder::TestCodeBuilder()
 	{
 		_table[0] = OpCode{ .num = 0, .name = "nop", .num_args = 0,
@@ -40,12 +90,6 @@ namespace svm
 						/* throw */
 						break;
 				}
-
-				/*if (a.type == VT_Int && b.type == VT_Int) r = Value::integer(a.v.integer + b.v.integer);
-				if (a.type == VT_Real && b.type == VT_Int) r = Value::real(a.v.real + b.v.integer);
-				if (a.type == VT_Int && b.type == VT_Real) r = Value::real(a.v.integer + b.v.real);
-				else if (a.type == VT_Real && b.type == VT_Real) r = Value::real(a.v.real + b.v.real);
-				else /* throw error */
 
 				ctx.push(r);
 			} };
@@ -130,25 +174,19 @@ namespace svm
 
 
 
-		_table[11] = OpCode{ .num = 11, .name = "cmple", .num_args = 0,
-		.handler = [](ExecutionContext& ctx, const std::vector<Value>& _args)
-		{
-			Value b = ctx.pop();
-			Value a = ctx.pop();
 
-			a = a.toTypeWith(b);
-			b = b.toTypeWith(a);
-
-			Value r = Value::integer(0);
-
-			switch (a.type)
-			{
-				case VT_Int: r = Value::integer(a.v.integer < b.v.integer); break;
-				case VT_Real: r = Value::integer(a.v.real < b.v.real); break;
-			}
-
-			ctx.push(r);
-		} };
+        _table[11] = OpCode{ .num = 11, .name = "cmple", .num_args = 0,
+                .handler = CompareValues<ComparatorLE>() };
+        _table[12] = OpCode{ .num = 12, .name = "cmpge", .num_args = 0,
+                .handler = CompareValues<ComparatorGE>() };
+        _table[13] = OpCode{ .num = 13, .name = "cmpe", .num_args = 0,
+                .handler = CompareValues<ComparatorE>() };
+        _table[14] = OpCode{ .num = 14, .name = "cmpne", .num_args = 0,
+                .handler = CompareValues<ComparatorNE>() };
+        _table[15] = OpCode{ .num = 15, .name = "cmpl", .num_args = 0,
+                .handler = CompareValues<ComparatorL>() };
+        _table[16] = OpCode{ .num = 16, .name = "cmpg", .num_args = 0,
+                .handler = CompareValues<ComparatorG>() };
 
 
 
@@ -205,24 +243,6 @@ namespace svm
 		{
 			ctx.push(ctx._variables[args[0].v.ref_index]);
 		} };
-
-		_table[100] = OpCode{ .num = 100, .name = "print", .num_args = 0,
-		.handler = [](ExecutionContext& ctx, const std::vector<Value>& _args)
-		{
-			Value a = ctx.pop();
-			switch (a.type)
-			{
-				case VT_Null: std::cout << "Value of type null\n"; break;
-				case VT_Int: std::cout << "Value of type int: " << a.v.integer << "\n"; break;
-				case VT_Real: std::cout << "Value of type real: " << a.v.real << "\n"; break;
-				case VT_Ref: std::cout << "Value of type ref: " << a.v.ref_index << "\n"; break;
-				case VT_Function: std::cout << "Value of type function: " << a.v.function_name_hash << "\n"; break;
-				default:
-				{
-					std::cout << "Unknown value type\n";
-				}
-			}
-		} };
 	}
 
 	void TestCodeBuilder::addFunction(std::string_view name, const std::vector<std::string>& args)
@@ -265,8 +285,9 @@ namespace svm
 		{
 			svm::Function func;
 			func.name = fn_pair.first;
-			func.args = fn_pair.second.args;
-			func.start_instr_pointer = values.size();
+            func.external = false;
+			func.script.args = fn_pair.second.args;
+			func.script.start_instr_pointer = values.size();
 			funcs.push_back(func);
 
 			std::vector<uint64_t> jump_instructions;

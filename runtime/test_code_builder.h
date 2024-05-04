@@ -43,7 +43,13 @@ namespace svm
 		void toInt() { emit("toint", {}); }
 		void toReal() { emit("toreal", {}); }
 
-		void cmpLE() { emit("cmple", {}); }
+        void cmpLE() { emit("cmple", {}); }
+        void cmpGE() { emit("cmpge", {}); }
+        void cmpE() { emit("cmpe", {}); }
+        void cmpNE() { emit("cmpne", {}); }
+        void cmpL() { emit("cmpl", {}); }
+        void cmpG() { emit("cmpg", {}); }
+        void inv() { emit("inv", {}); }
 
 		void ret() { emit("ret", {}); }
 		void ret(int64_t num_values) { emit<1>("retn", { Value::integer(num_values) }); }
@@ -64,8 +70,6 @@ namespace svm
 			emit<1>("br", { Value::ref(label.name) });
 			_current_function->jump_instructions[_current_label->name].push_back(_current_label->size - 1);
 		}
-
-		void print() { emit("print", {}); }
 
 	private:
 

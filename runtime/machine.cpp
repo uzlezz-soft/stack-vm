@@ -60,10 +60,19 @@ namespace svm
 		{
 			if (std::hash<std::string>()(it.name) == name_hash)
 			{
-				callFunction(/*it.start_instr_pointer, num_args*/it, num_args);
+				callFunction(it, num_args);
 				return;
 			}
 		}
+
+        for (const auto& it : _external_functions)
+        {
+            if (std::hash<std::string>()(it.name) == name_hash)
+            {
+                callFunction(it, num_args);
+                return;
+            }
+        }
 
 		throw std::runtime_error("No such function");
 	}
@@ -75,50 +84,67 @@ namespace svm
 			[name](const auto& f) { return f.name == name; });
 		if (it == funcs.end())
 		{
-			throw std::runtime_error("No such function");
-		}
-		callFunction(/*it->start_instr_pointer, num_args*/*it, num_args);
-	}
-
-	void Machine::callFunction(/*uint64_t start_instr_pointer, int64_t num_args*/const Function& func, int64_t num_args)
-	{
-		ExecutionContext ctx;
-		ctx.machine = this;
-		ctx.code = _code;
-		ctx.call_instr_pointer = _code->getInstructionPointer();
-
-		if (num_args == func.args.size())
-		{
-			for (int64_t i = num_args - 1; i >= 0; --i)
-			{
-				ctx._variables[std::hash<std::string>()(func.args[i])] = _exec_ctx_stack.top().pop();
-			}
-		}
-		else if (num_args < func.args.size())
-		{
-			for (int64_t i = func.args.size() - 1; i >= num_args; --i)
-			{
-				ctx._variables[std::hash<std::string>()(func.args[i])] = Value::null();
-			}
-			for (int64_t i = num_args - 1; i >= 0; --i)
-			{
-				ctx._variables[std::hash<std::string>()(func.args[i])] = _exec_ctx_stack.top().pop();
-			}
+            const auto& funcs = _external_functions;
+            const auto it = std::find_if(funcs.begin(), funcs.end(),
+                                         [name](const auto& f) { return f.name == name; });
+            if (it == funcs.end())
+            {
+                throw std::runtime_error("No such function");
+            }
+            callFunction(*it, num_args);
 		}
 		else
-		{
-			throw std::runtime_error("shit");
-		}
+            callFunction(*it, num_args);
+	}
 
-		/*for (int64_t i = 0; i < num_args; ++i)
-		{
-			auto v = _exec_ctx_stack.top().pop();
+	void Machine::callFunction(const Function& func, int64_t num_args)
+	{
+        if (!func.external)
+        {
+            ExecutionContext ctx;
+            ctx.machine = this;
+            ctx.code = _code;
+            ctx.call_instr_pointer = _code->getInstructionPointer();
 
-			//ctx.push(_exec_ctx_stack.top().pop());
-		}*/
+            if (num_args == func.script.args.size()) {
+                for (int64_t i = num_args - 1; i >= 0; --i) {
+                    ctx._variables[std::hash<std::string>()(func.script.args[i])] = _exec_ctx_stack.top().pop();
+                }
+            } else if (num_args < func.script.args.size()) {
+                for (int64_t i = func.script.args.size() - 1; i >= num_args; --i) {
+                    ctx._variables[std::hash<std::string>()(func.script.args[i])] = Value::null();
+                }
+                for (int64_t i = num_args - 1; i >= 0; --i) {
+                    ctx._variables[std::hash<std::string>()(func.script.args[i])] = _exec_ctx_stack.top().pop();
+                }
+            } else {
+                throw std::runtime_error("shit");
+            }
 
-		_exec_ctx_stack.push(ctx);
-		_code->setInstructionPointer(func.start_instr_pointer);
+            _exec_ctx_stack.push(ctx);
+            _code->setInstructionPointer(func.script.start_instr_pointer);
+        }
+        else
+        {
+            std::vector<Value> args;
+            args.resize(func.native.num_args);
+            if (num_args == func.native.num_args) {
+                for (int64_t i = num_args - 1; i >= 0; --i) {
+                    args[i] = _exec_ctx_stack.top().pop();
+                }
+            } else if (num_args < func.native.num_args) {
+                for (int64_t i = func.native.num_args - 1; i >= num_args; --i) {
+                    args[i] = Value::null();
+                }
+                for (int64_t i = num_args - 1; i >= 0; --i) {
+                    args[i] = _exec_ctx_stack.top().pop();
+                }
+            } else {
+                throw std::runtime_error("shit");
+            }
+
+            func.native.handler(args, _exec_ctx_stack.top().values);
+        }
 	}
 
 	void Machine::returnFromFunction()
@@ -137,29 +163,14 @@ namespace svm
 		}
 	}
 
-	/*void Machine::runFunction(ExecutionContext& ctx, uint64_t levels_deep)
-	{
-		std::vector<Value> args;
-		while (!ctx.ended)
-		{
-			Value instr = ctx.code->next();
-			auto& op_code = _op_codes[instr.v.integer];
-
-			Value num_args = ctx.code->next();
-
-			if (num_args.v.integer != op_code.num_args)
-			{
-				std::cerr << "Error at position " << ctx.code->getInstructionPointer()
-					<< ": op code has " << op_code.num_args << " args, but "
-					<< num_args.v.integer << " were provided.";
-				return;
-			}
-
-			args.resize(num_args.v.integer);
-			for (int64_t i = 0; i < num_args.v.integer; ++i)
-				args[i] = code.next();
-
-			op_code.handler(ctx, args);
-		}
-	}*/
+    void Machine::addFunction(std::string_view name, uint64_t num_args,
+                              const std::function<void(const std::vector<Value>&, std::stack<Value>&)>& func)
+    {
+        Function f;
+        f.name = name;
+        f.external = true;
+        f.native.num_args = num_args;
+        f.native.handler = func;
+        _external_functions.push_back(f);
+    }
 }

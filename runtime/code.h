@@ -1,6 +1,7 @@
 #pragma once
 
 #include "opcode.h"
+#include <stack>
 
 namespace svm
 {
@@ -8,8 +9,19 @@ namespace svm
 	struct Function
 	{
 		std::string name;
-		std::vector<std::string> args;
-		uint64_t start_instr_pointer;
+        bool external = false;
+
+        struct
+        {
+            std::vector<std::string> args;
+            uint64_t start_instr_pointer;
+        } script;
+
+        struct
+        {
+            uint64_t num_args;
+            std::function<void(const std::vector<Value> &args, std::stack<Value> &results)> handler;
+        } native;
 	};
 
 	class Code

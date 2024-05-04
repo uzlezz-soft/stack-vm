@@ -53,11 +53,14 @@ namespace svm
 
 		Machine(OpCodesTable op_codes);
 
-		bool run(Code& code, std::string_view function);
+        void addFunction(std::string_view name, uint64_t num_args,
+                         const std::function<void(const std::vector<Value>& args, std::stack<Value>& results)>& func);
+
+        bool run(Code& code, std::string_view function);
 
 		void callFunctionByHash(uint64_t name_hash, int64_t num_args);
 		void callFunction(std::string_view name, int64_t num_args);
-		void callFunction(const Function& func, int64_t num_args/*uint64_t start_instr_pointer, int64_t num_args*/);
+		void callFunction(const Function& func, int64_t num_args);
 		void returnFromFunction();
 
 	private:
@@ -65,6 +68,7 @@ namespace svm
 		OpCodesTable _op_codes;
 		Code* _code{ nullptr };
 
+        std::vector<Function> _external_functions;
 		std::stack<ExecutionContext> _exec_ctx_stack;
 		std::unordered_map<uint64_t, Value> _variables;
 	};
